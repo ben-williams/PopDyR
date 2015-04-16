@@ -64,7 +64,7 @@ N.table
 ```
 
 Note: The original lab called for histograms, however, histograms can be strongly affected by the number of bins used, so I've opted for density plots.
-```{r}
+```{r, message=FALSE}
 df <- data.frame(m2=m2) # create a dataframe with m2values
 x <- round(seq(5,35, length.out=length(df$m2)))
 df$m2n <- rnorm(x, mean = Em2, sd = sd.m2)# create a normal draw with mean of E(m2) and sd of m2
