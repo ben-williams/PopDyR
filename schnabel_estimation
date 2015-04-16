@@ -1,0 +1,165 @@
+---
+title: "Schnabel Estimation"
+author: ""
+date: ""
+output: html_document
+---
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 95)
+library(data.table)
+```
+
+Input data and create cfrog dataframe
+```{r}
+n <- c(32, 54, 37, 60, 41)  # number of captures
+m <- c(0, 18, 31, 47, 36)  # number of recaptures
+R <- c(32, 36, 6, 13, 5)  # of marked fish returned to the population
+M <- c(0, cumsum(R)[-5])
+(cfrog <- data.frame(n = n, m = m, R = R, M = M))
+```
+
+Calculate a Petersen estimate *N^* and add it to the cfrog data
+```{r}
+cfrog$N.hat <- M * n/m  
+```
+
+Calculate N* and add it to cfrog data
+```{r}
+N.star <- ((M + 1) * (n + 1)/(m + 1)) - 1  # Chapman corrected Petersen estimate
+cfrog$N.star <- c(NaN, N.star[-1])  # Need to remove the first value as it is an artifact of the Chapman correction
+v.star <- (M + 1) * (n + 1) * (M - m) * (n - m)/(((m + 1)^2) * (m + 2))
+cfrog$v.star <- c(NaN, v.star[-1])  # Need to remove the first value as it is an artifact of the Chapman correction
+cfrog
+```
+
+*Mean Petersen Estimates*
+```{r}
+x.N.star <- mean(cfrog$N.star, na.rm = T)
+x.v.star1 <- sum(cfrog$v.star, na.rm = T)/(length(cfrog$v.star) - 1)^2
+x.v.star2 <- var(cfrog$N.star, na.rm = T)/(length(cfrog$N.star) - 1)
+t <- qt((1 - 0.05/2), length(n) - 2)
+se.1 <- sqrt(x.v.star1)
+se.2 <- sqrt(x.v.star2)
+ci.1 <- c(x.N.star - t * se.1, x.N.star + t * se.1)
+ci.2 <- c(x.N.star - t * se.2, x.N.star + t * se.2)
+```
+
+*Mean Petersen Results*
+
+```{r}
+(mP.table = data.table(parameter = c("mean", "var1", "var2", "t", "se1", "se2", 
+    "ci.1 low", "ci.1  up", "ci.2 low", "ci.2  up"), value = format(c(x.N.star, 
+    x.v.star1, x.v.star2, t, se.1, se.2, ci.1[1], ci.1[2], ci.2[1], ci.2[2]), 
+    scientific = FALSE, digits = 2)))
+```
+**Schabel Estimate**
+```{r}
+nM <- n * M
+m.s <- sum(m)
+lambda <- sum(nM)
+N.schnabel <- lambda/(m.s + 1)
+z <- 1.96
+ci.sch <- c(lambda * (2 * m.s + z^2 - z * sqrt(4 * m.s + z^2))/(2 * m.s^2), 
+    lambda * (2 * m.s + z^2 + z * sqrt(4 * m.s + z^2))/(2 * m.s^2))
+```
+*Schnabel Results*
+```{r}
+(mS.table = data.table(parameter = c("N''", "ci low", "ci  up"), value = format(c(N.schnabel, 
+    ci.sch[1], ci.sch[2]), scientific = FALSE, digits = 3)))
+
+```
+**Schumacher-Eschmeyer**
+```{r}
+y <- m/n
+w <- n[-1]
+mM <- m[-1] * M[-1]
+wM2 <- w * M[-1]^2
+s.mM <- sum(mM)
+s.wM2 <- sum(wM2)
+beta <- s.mM/s.wM2
+pred.y <- beta * M
+diff <- y - pred.y
+wy2 <- w * diff[-1]^2
+s.wy2 <- sum(wy2)
+N.schesch <- 1/beta
+sigsq <- s.wy2/(length(n) - 2)
+se.beta <- sqrt(sigsq/s.wM2)
+se.N.schesch <- sqrt(1/beta^4 * se.beta^2)
+ci.beta <- c(beta - se.beta * t, beta + se.beta * t)
+ci.N.schesch <- c(1/ci.beta[2], 1/ci.beta[1])  #invert the limits
+```
+**Schumacher-Eschmeyer Results**
+```{r}
+mSE.table = data.frame(y, c(NA, w), c(NA, mM), c(NA, wM2), pred.y, diff, c(NA, 
+    wy2))  # I used a data.frame here instead of a data.table note that they create complementary objects that can be treated in a similar manner
+names(mSE.table) <- c("y=m/n", "w", "mM", "wM^2", "Pres y~", "y-y~", "w(y-y~)^2")
+mSE.table
+
+mSE.table1 <- data.frame(values = c(beta, N.schesch, sigsq), se = c(se.beta, 
+    se.N.schesch, NA), low.CI = c(ci.beta[1], ci.N.schesch[1], NA), up.CI = c(ci.beta[2], 
+    ci.N.schesch[2], NA), row.names = c("B~", "N~", "sigsq"))
+print(mSE.table1, digits = 2)
+```
+
+**MLE Estimate**
+
+*create a function so that it can be optimized (use the absolute value, then can use the standard optimize function that minimizes)*
+```{r}
+opt.func <- function(N) {
+    abs((1 - sum(cfrog$R)/N) - (prod(1 - cfrog$n/N)))
+}
+
+optimize(opt.func, c(50, 150))  #optimize over a reasonable range for the population
+
+
+plot(50:150, abs((1 - sum(cfrog$R)/50:150) - (prod(1 - cfrog$n/50:150))), xlab = "N estimate", 
+    ylab = "difference", ylim = c(-0.5, 0.9))  #plot it just for fun
+```
+
+
+**MLE with non-linear search procedure in detail**
+
+*Note that iterations in R are generally poor programming, they are done here simple as an example*
+```{r}
+fn <- function(x) {
+    N <- 97  #starting value of N
+    mle = matrix(0, nrow = x, ncol = 8)
+    colnames(mle) <- c("N", "g.N", "h.N", "N1", "g.N1", "h.N1", "delta.h", "corr")
+    for (i in 1:x) {
+        g.N <- prod(1 - n/N)
+        h.N <- N - sum(R) - N * g.N
+        N1 <- N - 1
+        g.N1 <- prod(1 - n/N1)
+        h.N1 <- N1 - sum(R) - N * g.N1
+        delta.h <- h.N - h.N1
+        corr <- -h.N/delta.h
+        mle[i, ] <- c(N, g.N, h.N, N1, g.N1, h.N1, delta.h, corr)
+        N <- N + corr
+    }
+    return(mle)
+}
+fn(5)
+```
+
+Now let's do this with a “shorter” method…
+There are a number of packages available for these sort of population calculations
+You will likely need to download the package before installing them (install.packages())
+both fishmethods and the FSA package (http://www.rforge.net/FSA/files/) have functions for calculating the Schabel and Schumacher-Eschmeyer population estimates.
+
+```{r}
+library(fishmethods)
+schnabel(catch = n, recaps = m, newmarks = R)
+```
+
+
+```{r}
+sessionInfo()
+```
+
+
+This is a lab exercise from Dr. Terry Quinn  
+at the University of Alaska Fairbanks  
+and has been worked up in R by:  
+Ben Williams  
+bcwilliams2@alaska.edu  
+ben.williams@alaska.gov
