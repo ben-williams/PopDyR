@@ -1,0 +1,200 @@
+---
+title: "Mark-recapture and the Bootstrap"
+output: html_document
+---
+**Parboot**  
+Inputs
+```{r}
+n1<-2000
+n2<-1000
+m2<-80
+```
+
+Calculate $N^*,v^*,se^*$
+
+```{r}
+N.star<-((n1+1)*(n2+1)/(m2+1))-1
+v.star<-(n1+1)*(n2+1)*(n1-m2)*(n2-m2)/(((m2+1)^2)*(m2+2))
+se.star<-sqrt(v.star)
+```
+
+Generate random numbers and calculate bootstrap estimates
+```{r}
+set.seed(120) # for reproducibility
+m2.b<-rhyper(100,n1,N.star-n1,n2) # 100 random m2 replicates from the hypergeometric distribution
+
+N.star.b<-((n1+1)*(n2+1)/(m2.b+1))-1 # abundance based upon replicates of m2
+v.star.b<-(n1+1)*(n2+1)*(n1-m2.b)*(n2-m2.b)/(((m2.b+1)^2)*(m2.b+2))
+se.b<-sqrt(v.star.b)
+parboot<-data.frame(m2.b,N.star.b,v.star.b,se.b)# type in parboot if you want to see the bootstrap results
+```
+Calculate bootstrap values
+```{r}
+se.Nstar.b<-sqrt(var(N.star.b))
+se.vstar.b<-sqrt(var(v.star.b))
+se.se.b<-sqrt(var(se.b))
+
+bias<-mean(N.star.b)-N.star
+bias.corr<-N.star-bias
+
+vbias<-mean(v.star.b)-v.star
+v.bias.corr<-v.star-vbias
+
+se.bias<-mean(se.b)-se.star
+se.bias.corr<-se.star-se.bias
+
+ebias.ese<-bias/se.Nstar.b*100
+
+boot.table<-data.frame(Abundance=c(N.star,mean(N.star.b),se.Nstar.b,bias,bias.corr), Variance=c(v.star,mean(v.star.b),se.vstar.b,vbias,v.bias.corr), SE=c(se.star,mean(se.b),se.se.b,se.bias,se.bias.corr),row.names=c("Original Estimate","Bootstrap Mean","Bootstrap SE","Estimated Bias", "Bias-corr Est"))
+print(boot.table,digits=2)
+```
+Generate confidence intervals for methods 6 & 7
+```{r}
+m6.lci<-N.star-1.96*se.Nstar.b
+m6.uci<-N.star+1.96*se.Nstar.b
+c(m6.lci,m6.uci)
+
+m7<-quantile(N.star.b, probs = c(0.025, 0.975))
+m7.lci<-m7[1]
+m7.uci<-m7[2]
+c(m7.lci,m7.uci)
+```
+
+Plot methods 6 & 7 for comparison to the methods from Lab 2
+
+*This section is a replication of Lab 2. for comparison sake*
+```{r}
+N.hat<-n1*n2/m2
+v.m2<-m2*N.hat/(N.hat-1)*(1-n1/N.hat)*(1-n2/N.hat)
+se.m2<-sqrt(v.m2)
+N.star<-((n1+1)*(n2+1)/(m2+1))-1
+v.star<-(n1+1)*(n2+1)*(n1-m2)*(n2-m2)/(((m2+1)^2)*(m2+2))
+se.star<-sqrt(v.star)
+cv.star<-(se.star/N.star)*100
+m1.lci<-N.star-1.96*se.star
+m1.uci<-N.star+1.96*se.star
+
+m2.lci<-n1*n2/(m2+1.96*se.m2)
+m2.uci<-n1*n2/(m2-1.96*se.m2)
+
+N<-c(10000:40000) # Set the range of N to be used
+L<-dhyper(m2,n1,N-n1,n2) # Generate a likelihood
+
+fn<-function(N){
+  -dbinom(m2,n1,n2/N)}
+binom<-optimize(fn,c(20000,30000)) # Know from the Likelihood figure that the population estimate is somewhere between 20000-30000, optimize between these points (change for different population estimates).
+bm<-binom$minimum # MLE population estimate
+
+fn <- function(x) log(dbinom(m2, size = n1, prob = n2 / x)) - (max(log(L)) - 1.92)
+lci<-uniroot(fn,lower=bm-10000,upper=bm) # confidence intervals optimized on a reasonable range below N*
+m3.lci <-lci[1]
+uci<-uniroot(fn,lower=bm,upper=bm+20000) # confidence intervals optimized on a reasonable range above N*
+m3.uci <-uci[1]
+
+p.hat<-m2/n2
+f.hat<-m2/n1
+part1<-1.96*(sqrt(((1-f.hat)*p.hat*(1-p.hat))/(n2-1)))+(1/(2*n2))
+m4.lci<-n1/(p.hat+part1)
+m4.uci<-n1/(p.hat-part1)
+
+lci<-function(m5.lci){((m2-(n1*n2/m5.lci))^2/((n1*n2/m5.lci)*(1-n1/m5.lci)*((m5.lci-n2)/(m5.lci-1))))-1.96^2}
+m5.lci<-uniroot(lci,c(bm-10000,bm))$root
+
+uci<-function(m5.uci){((m2-(n1*n2/m5.uci))^2/((n1*n2/m5.uci)*(1-n1/m5.uci)*((m5.uci-n2)/(m5.uci-1))))-1.96^2}
+m5.uci<-uniroot(uci,c(bm,bm+20000))$root
+
+plot(1:7,rep(N.star,7),pch=19,ylab="Estimate",xlab="Method", ylim=c(15000,35000))
+points(1:7,c(m1.lci,m2.lci,m3.lci,m4.lci,m5.lci,m6.lci,m7.lci))
+points(1:7,c(m1.uci,m2.uci,m3.uci,m4.uci,m5.uci,m6.uci,m7.uci))
+lines(c(1,1),c(m1.lci,m1.uci))
+lines(c(2,2),c(m2.lci,m2.uci))
+lines(c(3,3),c(m3.lci,m3.uci))
+lines(c(4,4),c(m4.lci,m4.uci))
+lines(c(5,5),c(m5.lci,m5.uci))
+lines(c(6,6),c(m6.lci,m6.uci))
+lines(c(7,7),c(m7.lci,m7.uci))
+
+```
+
+**Cricket Frog**
+----------
+*Data from Seber 1982, p. 135*
+
+Given data
+```{r}
+n<-c(32,54,37,60,41)# number of captures
+r<-92
+N.MLE<-round(95.6)
+mle.lci<-91.5
+mle.uci<-99.9
+```
+Calculate values of $m_i$ as a hypergeometric variable with parameters $N, M_i, n_i$. Each $M_i$ (except $M_2 = n_1$) is calculated as $M_i = M_{i-1} + n_{i-1} -m_{i-1}$.
+```{r}
+set.seed(123) # for reproducibility
+m2<-rhyper(100,n[1],N.MLE-n[1],n[2])
+M3<-n[1]+n[2]-m2
+m3<-rhyper(100,n[3],N.MLE-n[3],M3)
+M4<-n[3]+M3-m3
+m4<-rhyper(100,n[4],N.MLE-n[4],M4)
+M5<-n[4]+M4-m4
+m5<-rhyper(100,n[5],N.MLE-n[5],M5)
+M6<-n[5]+M5-m5
+x.r<-mean(M6)
+sd.r<-sd(M6)
+bias.r<-x.r-r
+bias.corr.r<-r-bias.r
+iter<-data.frame(m2,M3,m3,M4,m4,M5,m5,M6)
+head(iter)
+```
+Calculate a MLE for each iteration (M6=r)
+```{r}
+ mle <- vector("numeric",length(M6)) # create a vector to store results
+for(i in 1:length(M6)){
+    fn<-function(N){
+  abs((1-(M6[i])/N)-(prod(1-n/N)))# computes left and right hand side of MLE
+  }
+  z<-optimize(fn,c(75,125)) # optimizes MLE
+    mle[i]<-z$minimum #stores each value in the vector (optimize produces a $minimum and $objective we just want the $minimum)
+}
+iter$mle<-mle # attach values to bootstrap iteratin values for display
+head(iter)
+```
+
+Compute bootstrap mean, se, bias, bootstrap confidence intervals (two methods (normal and quantile))
+```{r}
+x.r<-mean(M6)
+sd.r<-sd(M6)
+bias.r<-x.r-r
+bias.corr.r<-r-bias.r
+
+x.Nhatb<-mean(mle)
+sd.Nhatb<-sd(mle)
+bias.Nhatb<-x.Nhatb-N.MLE
+bias.corr.Nhatb<-N.MLE - bias.Nhatb
+b1.lci<-N.MLE-1.96*sd.Nhatb
+b1.uci<-N.MLE+1.96*sd.Nhatb
+b2.ci<-quantile(mle, probs = c(0.025, 0.975))
+b2.lci<-b2.ci[1]
+b2.uci<-b2.ci[2]
+
+cfrog.table<-data.frame(r=c(r,x.r,sd.r,bias.r,bias.corr.r), N.MLE=c(N.MLE,x.Nhatb,sd.Nhatb,bias.Nhatb,bias.corr.Nhatb),row.names=c("Original Estimate","Bootstrap Mean","Bootstrap sd","Estimated Bias", "Bias-corr Est"))
+
+ci.table<-data.frame(LCI=c(mle.lci,b1.lci,b2.lci), UCI=c(mle.uci,b1.uci,b2.uci),row.names=c("Orig.","Boot 1", "Boot 2"))
+
+```
+Bootstrap estimates
+```{r,echo=FALSE}
+print(cfrog.table,digits=2)
+```
+Confidence intervals
+```{r,echo=FALSE}
+ci.table
+```
+```{r}
+sessionInfo()
+```
+
+This is a lab exercise from Dr. Terry Quinn 
+at the University of Alaska Fairbanks
+and has been coded in R by: Ben Williams
+bcwilliams2@alaska.edu
