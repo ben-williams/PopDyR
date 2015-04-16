@@ -141,12 +141,40 @@ fn <- function(x) {
 fn(5)
 ```
 
+Results from MLE Estimate
+
+```{r}
+N.hat <- fn(5)[5]
+N.hat1 <- fn(5)[5] - 1
+N.hat2 <- fn(5)[5] - 2
+g.Nhat <- prod(1 - n/N.hat)
+g.Nhat1 <- prod(1 - n/N.hat1)
+g.Nhat2 <- prod(1 - n/N.hat2)
+h.Nhat <- N.hat - sum(R) - N.hat * g.Nhat
+h.Nhat1 <- N.hat1 - sum(R) - N.hat1 * g.Nhat1
+h.Nhat2 <- N.hat2 - sum(R) - N.hat2 * g.Nhat2
+D.h <- h.Nhat - h.Nhat1
+D.h1 <- h.Nhat1 - h.Nhat2
+D2.h <- D.h - D.h1
+b.hat <- -0.5 * (N.hat - sum(R)) * D2.h/D.h^2
+Nb.hat <- N.hat - b.hat
+se <- sqrt((N.hat - sum(R))/D.h)
+Nhat.lci <- Nb.hat - 1.96 * se
+Nhat.uci <- Nb.hat + 1.96 * se
+
+mle.table <- data.frame(Abundance = c(N.hat, N.hat1, N.hat2), g.N = c(g.Nhat, 
+    g.Nhat1, g.Nhat2), h = c(h.Nhat, h.Nhat1, h.Nhat2), Del.h = c(D.h, D.h1, 
+    NA), Del2.h = c(D2.h, NA, NA), b.hat = c(b.hat, NA, NA), N.bhat = c(Nb.hat, 
+    NA, NA), se = c(se, NA, NA), row.names = c("N^", "N^-1", "N^-2"))
+print(mle.table, digits = 2)
+```
+
 Now let's do this with a “shorter” method…
 There are a number of packages available for these sort of population calculations
 You will likely need to download the package before installing them (install.packages())
 both fishmethods and the FSA package (http://www.rforge.net/FSA/files/) have functions for calculating the Schabel and Schumacher-Eschmeyer population estimates.
 
-```{r}
+```{r, warning=FALSE}
 library(fishmethods)
 schnabel(catch = n, recaps = m, newmarks = R)
 ```
