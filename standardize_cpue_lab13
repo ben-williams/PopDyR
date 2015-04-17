@@ -12,8 +12,8 @@ windowsFonts(Times=windowsFont("TT Times New Roman"))
 theme_set(theme_bw(base_size=12,base_family='Times New Roman')+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()))
 ```
 **1.** The longline fishery for Pacific halibut is conducted by vessels that use two different kinds of gear: fixed-hook (hooks tied directly onto the longline at a fixed hook-spacing) and snap-on (hooks snapped-onto the gear as the line goes out). The International Pacific Halibut Commission used only data from fixed-hook vessels to calculate a CPUE index. More and more vessels have used snap-on gear, and the question is whether data from snap-on vessels can be used to improve the CPUE index.
-Catch and CPUE data are provided for Pacific halibut from SE Alaska-Inside and Kodiak between 1976 and 1982. The data contains total catch $C$ over the two gear types, fixed-hook CPUE ($U$), and the observed ratios of snap to fixed-hook CPUE ($P_s$).
-**a.** Determine $U=CPUE$ of snap gear and calculate ln($U$) for all the data.
+Catch and CPUE data are provided for Pacific halibut from SE Alaska-Inside and Kodiak between 1976 and 1982. The data contains total catch $C$ over the two gear types, fixed-hook CPUE ($U$), and the observed ratios of snap to fixed-hook CPUE ($P_s$).  
+**a.** Determine $U=CPUE$ of snap gear and calculate ln($U$) for all the data.  
 **b.** Let fixed-hook gear be the reference (and standard) gear, 1980 be the reference year, and SE AK-Inside be the reference region. *The excel version of this has you construct dummy variables - that is not needed here.*
 ```{r}
 lab13<-data.frame(area=c(rep("SE-AK-Inside",7),rep("Kodiak",7)),gear=rep("fixed",14),year=rep(1976:1982,2),C=c(3263,1641,2045,2696,2242,2892,2313,5540,5141,5961,6032,5304,8974,9670),U=c(42.1,37.7,46.3,77.5,75.3,139,193.1,59.4,63.3,76.3,76.1,137.2,149.6,191.4),P=c(.77,.71,.77,.76,.87,.75,.5,.68,.64,.61,.55,.43,.75,.63))
@@ -47,7 +47,7 @@ a. model the data, don't worry about re-leveling.
 summary(m2<-glm(lnU~gear+Year+area-1,data=data))
 ```
 b. Create a dataframe for predicting the model and plot the results
-```{r}
+```{r, warning=FALSE}
 newd <- expand.grid(gear=levels(data$gear), year=as.numeric(levels(data$Year)),area=levels(data$area))
 newd$Year <- factor(newd$year)
 newd$pred <- predict(m2, newd, type='response')
