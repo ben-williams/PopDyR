@@ -38,13 +38,14 @@ t.m2 <- diff.m2/se.m2
 
 Calculate $N^*$ and associated estimates
 ```{r}
+EN_star<- ((n1 + 1) * (n2 + 1)/(Em2 + 1)) - 1
 N_star <- ((n1 + 1) * (n2 + 1)/(m2 + 1)) - 1
 x.N_star <- mean(N_star)
 sd.N_star <- sd(N_star)
 se.N_star <- sd.N_star/sqrt(length(N_star))
 lci.N_star <- x.N_star - 1.96 * se.N_star
 uci.N_star <- x.N_star + 1.96 * se.N_star
-diff.N_star <- x.N_star - Em2
+diff.N_star <- x.N_star - EN_star
 t.N_star <- diff.N_star/se.N_star
 ```
 $m2$ results
