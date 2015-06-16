@@ -1,0 +1,64 @@
+---
+title: "Standardization of CPUE"
+output: html_document
+---
+```{r,message=FALSE,warning=FALSE,echo=FALSE}
+#load packages and figure setup
+library(extrafont);library(ggplot2)
+#font_import() #only do this one time - it takes a while
+loadfonts(device="win")
+windowsFonts(Times=windowsFont("TT Times New Roman"))
+theme_set(theme_bw(base_size=12,base_family='Times New Roman')+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()))
+```
+**1.** The longline fishery for Pacific halibut is conducted by vessels that use two different kinds of gear: fixed-hook (hooks tied directly onto the longline at a fixed hook-spacing) and snap-on (hooks snapped-onto the gear as the line goes out). The International Pacific Halibut Commission used only data from fixed-hook vessels to calculate a CPUE index. More and more vessels have used snap-on gear, and the question is whether data from snap-on vessels can be used to improve the CPUE index.
+Catch and CPUE data are provided for Pacific halibut from SE Alaska-Inside and Kodiak between 1976 and 1982. The data contains total catch $C$ over the two gear types, fixed-hook CPUE ($U$), and the observed ratios of snap to fixed-hook CPUE ($P_s$).
+**a.** Determine $U=CPUE$ of snap gear and calculate ln($U$) for all the data.
+**b.** Let fixed-hook gear be the reference (and standard) gear, 1980 be the reference year, and SE AK-Inside be the reference region. *The excel version of this has you construct dummy variables - that is not needed here.*
+```{r}
+lab13<-data.frame(area=c(rep("SE-AK-Inside",7),rep("Kodiak",7)),gear=rep("fixed",14),year=rep(1976:1982,2),C=c(3263,1641,2045,2696,2242,2892,2313,5540,5141,5961,6032,5304,8974,9670),U=c(42.1,37.7,46.3,77.5,75.3,139,193.1,59.4,63.3,76.3,76.1,137.2,149.6,191.4),P=c(.77,.71,.77,.76,.87,.75,.5,.68,.64,.61,.55,.43,.75,.63))
+```
+One way to approach this is to create another data.frame that repeats much of the information present in the lab13 data.frame then bind the two data.frames together.
+```{r}
+snap<-data.frame(area=c(rep("SE-AK-Inside",7),rep("Kodiak",7)),gear=rep("snap",14),year=rep(1976:1982,2),C=NA,U=lab13$U*lab13$P,P=NA)
+(data<-rbind(lab13,snap))
+str(data)
+data$lnU<-log(data$U)
+data$Year<-factor(data$year) #Create a factor year for the analysis
+```
+**c.** Apply the general linear model to the data, using ln($U$) as the dependent variable and the block of x's as the independent variables in a multiple linear regression. Have the regression compute predicted values (by calculating residuals). From the t-statistics for the parameter estimates, which are statistically significant?  
+**Note that I use "relevel" to set the reference gear, year, and location.
+```{r}
+summary(m1<-glm(lnU~relevel(gear, "fixed")+relevel(Year,"1980")+relevel(area,"SE-AK-Inside"),data=data))
+data$pred.lmU<-fitted(m1)
+data$pred.U<-exp(fitted(m1))
+data$E.effort<-data$C*1000/data$U
+data$pred.effort<-data$C*1000/data$pred.U
+```
+Plots
+```{r}
+ggplot(data,aes(year,U,group=area:gear,color=area:gear))+
+geom_line(data=data,aes(year,pred.U,linetype=gear),size=2)+theme_bw()+geom_point(size=5)
+```
+
+How I would run this analysis using ggplot2, aka get there faster.  
+a. model the data, don't worry about re-leveling.
+```{r}
+summary(m2<-glm(lnU~gear+Year+area-1,data=data))
+```
+Create a dataframe for predicting the model and plot the results
+```{r}
+newd <- expand.grid(gear=levels(data$gear), year=as.numeric(levels(data$Year)),area=levels(data$area))
+newd$Year <- factor(newd$year)
+newd$pred <- predict(m2, newd, type='response')
+newd$U <- exp(newd$pred)
+ggplot(newd, aes(year, U, color=interaction(area,gear)))+geom_line()+#this is the modeled data layer
+geom_point(data=data, aes(year, U))+ # this is the observed data
+scale_color_discrete(name="Area and gear")
+```{r}
+sessionInfo()
+```
+This is a lab exercise from Dr. Terry Quinn
+at the University of Alaska Fairbanks
+and has been coded in R by: Ben Williams
+bcwilliams2@alaska.edu
+ben.williams@alaska.gov

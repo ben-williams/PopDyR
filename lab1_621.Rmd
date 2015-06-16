@@ -1,0 +1,107 @@
+---
+title: "Lab 1. Single Mark-Release Experiment: Understanding Random Variables"
+author: "Ben Williams"
+date: ""
+output: html_document
+---
+
+From $E(m2)={n_{1}n_{2}/N}$ , solve for true abundance $N$. $N$=_____________. Calculate $N$ in the appropriate spot.
+Calculate $N^*$ for each replication. 
+
+```{r,echo=FALSE}
+library(data.table); library(ggplot2); library(reshape2)
+theme_set(theme_bw(base_size=12)+ 
+             theme(panel.grid.major = element_blank(), 
+                   panel.grid.minor = element_blank()))
+```
+Starting values and calculate $N$
+```{r}
+n1 = 2000
+n2 = 1000
+Em2 = 20
+N = n1 * n2/Em2
+```
+60 Random draws of $m2$
+```{r}
+set.seed(26)  #so that the values can be reproduced
+m2 <- round(rnorm(60, 20, 5))
+x.m2 <- mean(m2)
+x.m2
+
+sd.m2 <- sd(m2)
+se.m2 <- sd.m2/sqrt(length(m2))
+lci.m2 <- x.m2 - 1.96 * se.m2
+uci.m2 <- x.m2 + 1.96 * se.m2
+diff.m2 <- x.m2 - Em2
+t.m2 <- diff.m2/se.m2
+```
+
+Calculate $N^*$ and associated estimates
+```{r}
+N_star <- ((n1 + 1) * (n2 + 1)/(m2 + 1)) - 1
+x.N_star <- mean(N_star)
+sd.N_star <- sd(N_star)
+se.N_star <- sd.N_star/sqrt(length(N_star))
+lci.N_star <- x.N_star - 1.96 * se.N_star
+uci.N_star <- x.N_star + 1.96 * se.N_star
+diff.N_star <- x.N_star - Em2
+t.N_star <- diff.N_star/se.N_star
+```
+$m2$ results
+```{r}
+m2.table = data.table(parameter = c("mean", "sd", "se", "uci", "lci", "diff", 
+    "t-stat"), value = format(c(x.m2, sd.m2, se.m2, lci.m2, uci.m2, diff.m2, 
+    t.m2), scientific = FALSE, digits = 2))
+m2.table
+```
+
+$N^*$ results
+```{r}
+N.table = data.table(parameter = c("mean", "sd", "se", "uci", "lci", "diff", 
+    "t-stat"), value = format(c(x.N_star, sd.N_star, se.N_star, lci.N_star, 
+    uci.N_star, diff.N_star, t.N_star), scientific = FALSE, digits = 2))
+N.table
+```
+
+Note: The original lab called for histograms, however, histograms can be strongly affected by the number of bins used, so I've opted for density plots.
+```{r}
+df <- data.frame(m2=m2) # create a dataframe with m2values
+x <- round(seq(5,35, length.out=length(df$m2)))
+df$m2n <- rnorm(x, mean = Em2, sd = sd.m2)# create a normal draw with mean of E(m2) and sd of m2
+
+df <- melt(df)
+
+ggplot(df, aes(x=value, group=variable, fill=variable))+ geom_density(alpha=.3)+ 
+                        scale_fill_manual(name="",
+                         breaks=c("m2", "m2n"),
+                         labels=c("Observed", "Predicted"),
+                         values=c('black', 'blue'))+xlab('M2')
+
+
+
+df <- data.frame(N_star=N_star) # create a dataframe with N* values
+x <- seq(30000,230000, length.out=length(df$N_star)) 
+df$N_starn <- rnorm(x, mean = N, sd = sd.N_star)# create a normal draw with mean of N and sd of N*
+df <- melt(df)
+
+ ggplot(df, aes(x=value, group=variable, fill=variable))+ geom_density(alpha=.3)+ 
+                        scale_fill_manual(name="",
+                         breaks=c("N_star", "N_starn"),
+                         labels=c("Observed", "Predicted"),
+                         values=c('black', 'blue'))+xlab('N*')
+```
+
+Notes: A reasonably normal distribution of draws of $M_2$ produce a skewed distribution of population estimates.
+
+```{r}
+sessionInfo()
+```
+
+
+This is a lab exercise from Dr. Terry Quinn  
+at the University of Alaska Fairbanks  
+and has been worked up in R by:  
+Ben Williams  
+bcwilliams2@alaska.edu  
+ben.williams@alaska.gov
+
