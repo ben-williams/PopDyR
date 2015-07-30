@@ -7,13 +7,9 @@ output: html_document
 # load packages and figure setup
 
 library(extrafont);library(ggplot2)
-
 # font_import() #only do this one time - it takes a while
-
 loadfonts(device="win")
-
 windowsFonts(Times=windowsFont("TT Times New Roman"))
-
 theme_set(theme_bw(base_size=12,base_family='Times New Roman')+theme(panel.grid.major = element_blank(),        panel.grid.minor = element_blank()))
 ```
 **1.** The longline fishery for Pacific halibut is conducted by vessels that use two different kinds of gear: fixed-hook (hooks tied directly onto the longline at a fixed hook-spacing) and snap-on (hooks snapped-onto the gear as the line goes out). The International Pacific Halibut Commission used only data from fixed-hook vessels to calculate a CPUE index. More and more vessels have used snap-on gear, and the question is whether data from snap-on vessels can be used to improve the CPUE index.
@@ -56,8 +52,8 @@ data$pred.effort<-data$C*1000/data$pred.U
 ```
 Plots
 ```{r}
-ggplot(data, aes(year, U, group = area:gear, color = area:gear)) + 
-  geom_line(data = data, aes(year, pred.U, linetype = gear), size=2) + geom_point(size=5)
+ggplot(data, aes(year, U, group = area:gear, color = area:gear)) + geom_point(size=5) +
+  geom_line(aes(year, pred.U, linetype = gear), size=2) 
 ```
 
 How I would run this analysis using ggplot2, aka get there faster.  
